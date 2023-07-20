@@ -1,0 +1,5 @@
+pool:
+  res_host_list:
+    - 143.64.32.227
+    - 143.64.33.243
+  max_running_timeout: 600
