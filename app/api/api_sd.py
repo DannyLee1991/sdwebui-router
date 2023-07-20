@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.core.pool import BusyException
+from loguru import logger
 from .model import ResponseModel, RWModel
 
 router = APIRouter()
@@ -23,4 +24,5 @@ def gen_img(item: GenImg):
     except BusyException as e:
         return ResponseModel(data={}, status=203, message=f"{e}")
     except Exception as e:
+        logger.exception(e)
         return ResponseModel(data={}, status=500, message=f"{e}")

@@ -60,7 +60,7 @@ class Res:
         item.prompt = f"{item.prompt}{_prompts_lora_suffix}"
 
         # ---vae---
-        target_vae_filepath = f"data/VAE/{vae_model['name']}"
+        target_vae_filepath = f"data/VAE/{vae_model.get('name', '')}"
         target_vae_copy_filepath = f"data/VAE/{base_model['name'].split('.')[0]}.vae.pt"
         if vae_model:
             vae_copy_is_exist = self.file_downloader.check(target_vae_copy_filepath)
