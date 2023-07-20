@@ -98,7 +98,7 @@ class Res:
         # 参数预处理
         self._sd_params_preprocessing(item)
         # 切换模型
-        self._switch_model(model=item.setup_params.get("model"))
+        self._switch_model(model=item.setup_params.get("base_model")['name'])
 
     def _prepare_for_lora(self, lora_info_list=[]):
         """
