@@ -1,5 +1,7 @@
 import time
 import random
+import re
+from typing import List
 from loguru import logger
 from app.module.file_downloader import FileDownloader
 from webuiapi import WebUIApi
@@ -18,7 +20,6 @@ S_IDLE = "idle"
 class Res:
     host: str
     status: str = S_IDLE
-    status_time = time.time()
 
     def __init__(self, host, status=S_IDLE, status_time=time.time()):
         self.host = host
@@ -168,17 +169,35 @@ class Res:
 
 
 class Pool:
-    res_list = []
+    res_list: List[Res] = []
 
     def __init__(self, res_host_list=[], max_running_timeout=600):
         # 处于running态的最大超时时间
         self.max_running_timeout = max_running_timeout
         # 注册资源
         for host in res_host_list:
-            self._register(host)
+            self.register(host)
 
-    def _register(self, host: str):
-        self.res_list.append(Res(host=host))
+    def list_res(self):
+        return [{"host": item.host, "status": item.status,
+                 "state_duration": item.get_state_duration()} for item in
+                self.res_list]
+
+    def register(self, host: str):
+        if not is_valid_ipv4(host):
+            raise Exception(f"{host} is not valid ipv4 address")
+        elif host not in [res.host for res in self.res_list]:
+            self.res_list.append(Res(host=host, status_time=time.time()))
+        else:
+            raise Exception("host already in register res list")
+
+    def unregister(self, host: str):
+        for res in self.res_list:
+            if res.host == host:
+                self.res_list.remove(res)
+                break
+        else:
+            raise Exception("host not in register res list")
 
     def refresh(self):
         for res in self.res_list:
@@ -221,3 +240,18 @@ class BusyException(Exception):
 def unzip_file(zip_path, extract_path):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
+
+
+def is_valid_ipv4(ip_str):
+    # Regular expression pattern for IPv4 address
+    ipv4_pattern = r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$'
+
+    # Check if the input string matches the IPv4 pattern
+    match = re.match(ipv4_pattern, ip_str)
+
+    if match:
+        # Check each octet to ensure it is in the valid range (0 to 255)
+        octets = [int(octet) for octet in match.groups()]
+        if all(0 <= octet <= 255 for octet in octets):
+            return True
+    return False
