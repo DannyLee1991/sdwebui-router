@@ -143,9 +143,8 @@ class Res:
             logger.info(f"_sd_params_preprocessing controlnet_units start")
             item.sd_params["controlnet_units"] = [
                 ControlNetUnit(
-                    input_image=Image.open(BytesIO(requests.get(unit["input_image"], timeout=10).content)),
-                    module=unit["module"],
-                    model=unit["model"],
+                    input_image=Image.open(BytesIO(requests.get(unit.pop("input_image"), timeout=10).content)),
+                    **unit
                 )
                 for unit in item.sd_params["controlnet_units"]
             ]
