@@ -5,15 +5,15 @@ router = APIRouter()
 
 
 @router.post("/register")
-def api_register(host: str) -> ResponseModel:
+def api_register(origin: str) -> ResponseModel:
     """
     注册服务资源
-    :param host:
+    :param origin:
     :return:
     """
     from app import pool
     try:
-        pool.register(host)
+        pool.register(origin)
         return ResponseModel(data={})
     except Exception as e:
         return ResponseModel(data={}, status=500, message=f"{e}")

@@ -18,15 +18,15 @@ S_IDLE = "idle"
 
 
 class Res:
-    host: str
+    origin: str
     status: str = S_IDLE
 
-    def __init__(self, host, status=S_IDLE, status_time=time.time()):
-        self.host = host
+    def __init__(self, origin, dl_server_origin, status=S_IDLE, status_time=time.time()):
+        self.origin = origin
         self.status = status
         self.status_time = status_time
-        self.file_downloader = FileDownloader(host=self.host, port=8000)
-        self.webuiapi = WebUIApi(host=self.host)
+        self.file_downloader = FileDownloader(origin=dl_server_origin)
+        self.webuiapi = WebUIApi(baseurl=f"{self.origin}/sdapi/v1")
 
     def __enter__(self):
         self._tic = time.time()
@@ -39,11 +39,11 @@ class Res:
         return time.time() - self.status_time
 
     def _occupy(self):
-        logger.info(f"{self.host} start occupy")
+        logger.info(f"{self.origin} start occupy")
         self._update_status(S_RUNNING)
 
     def _release(self):
-        logger.info(f"{self.host} release, cost time: {time.time() - self._tic:.2f}s")
+        logger.info(f"{self.origin} release, cost time: {time.time() - self._tic:.2f}s")
         self._update_status(S_IDLE)
 
     def _update_status(self, status):
@@ -170,29 +170,29 @@ class Res:
 class Pool:
     res_list: List[Res] = []
 
-    def __init__(self, res_host_list=[], max_running_timeout=600):
+    def __init__(self, res_origin_list=[], dl_server_origin="", max_running_timeout=600):
         # 处于running态的最大超时时间
         self.max_running_timeout = max_running_timeout
+        # file-downloader服务地址
+        self.dl_server_origin = dl_server_origin
         # 注册资源
-        for host in res_host_list:
-            self.register(host)
+        for origin in res_origin_list:
+            self.register(origin)
 
     def list_res(self):
-        return [{"host": item.host, "status": item.status,
+        return [{"host": item.origin, "status": item.status,
                  "state_duration": item.get_state_duration()} for item in
                 self.res_list]
 
-    def register(self, host: str):
-        if not is_valid_ipv4(host):
-            raise Exception(f"{host} is not valid ipv4 address")
-        elif host not in [res.host for res in self.res_list]:
-            self.res_list.append(Res(host=host, status_time=time.time()))
+    def register(self, origin: str):
+        if origin not in [res.origin for res in self.res_list]:
+            self.res_list.append(Res(origin=origin, dl_server_origin=self.dl_server_origin, status_time=time.time()))
         else:
             raise Exception("host already in register res list")
 
     def unregister(self, host: str):
         for res in self.res_list:
-            if res.host == host:
+            if res.origin == host:
                 self.res_list.remove(res)
                 break
         else:
@@ -220,14 +220,14 @@ class Pool:
         res_list = self.idle_res_list(block=True)
         if res_list:
             res = random.choice(res_list)
-            logger.info(f"pick res from {len(res_list)} idle res => {res.host}")
+            logger.info(f"pick res from {len(res_list)} idle res => {res.origin}")
             return res
         else:
             raise BusyException("all res is busy")
 
     def _find_res_by_host(self, host: str) -> Res:
         for res in self.res_list:
-            if res.host == host:
+            if res.origin == host:
                 return res
         raise Exception(f"res {host} not found")
 
