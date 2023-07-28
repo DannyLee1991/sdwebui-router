@@ -61,8 +61,8 @@ class Res:
         item.prompt = f"{item.prompt}{_prompts_lora_suffix}"
 
         # ---vae---
-        target_vae_filepath = f"data/VAE/{vae_model.get('name', '')}"
-        target_vae_copy_filepath = f"data/VAE/{base_model['name'].split('.')[0]}.vae.pt"
+        target_vae_filepath = f"models/VAE/{vae_model.get('name', '')}"
+        target_vae_copy_filepath = f"models/VAE/{base_model['name'].split('.')[0]}.vae.pt"
         if vae_model:
             vae_copy_is_exist = self.file_downloader.check(target_vae_copy_filepath)
             if not vae_copy_is_exist:
@@ -75,7 +75,7 @@ class Res:
 
         # ---controlnet---
         for controlnet in controlnet_list:
-            target_control_filepath = f"data/ControlNet/{controlnet['name']}"
+            target_control_filepath = f"models/ControlNet/{controlnet['name']}"
             controlnet_is_exist = self.file_downloader.check(target_control_filepath)
             logger.info(f"controlnet是否存在 => {controlnet_is_exist} : {controlnet_is_exist}")
             if not controlnet_is_exist:
@@ -85,7 +85,7 @@ class Res:
                 logger.info(f"controlnet模型下载完成 {controlnet}")
 
         # ---基础模型---
-        target_model_filepath = f"data/StableDiffusion/{base_model['name']}"
+        target_model_filepath = f"models/Stable-diffusion/{base_model['name']}"
         model_is_exist = self.file_downloader.check(target_model_filepath)
         logger.info(f"基础模型是否已存在 => {target_model_filepath} : {model_is_exist}")
         if not model_is_exist:
@@ -112,7 +112,7 @@ class Res:
             lora_alpha = lora_info["alpha"]
             lora_url = lora_info["url"]
 
-            target_filepath = f"data/Lora/{lora_hash}.safetensors"
+            target_filepath = f"models/Lora/{lora_hash}.safetensors"
             is_exist = self.file_downloader.check(target_filepath)
             if not is_exist:
                 self.file_downloader.fetch(
@@ -130,7 +130,7 @@ class Res:
             logger.info(f"_sd_params_preprocessing img2img start")
             # 将可读图片链接转化成PIL类型
             item.sd_params["images"] = [
-                Image.open(BytesIO(requests.get(img, timeout=10).content)) for img in cp_kwargs["sd_params"]["images"]
+                Image.open(BytesIO(requests.get(img, timeout=10).content)) for img in item.sd_params["images"]
             ]
         # 将sd_params 中的 mask_image 转化成PIL类型
         if "mask_image" in item.sd_params:
@@ -239,18 +239,3 @@ class BusyException(Exception):
 def unzip_file(zip_path, extract_path):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_path)
-
-
-def is_valid_ipv4(ip_str):
-    # Regular expression pattern for IPv4 address
-    ipv4_pattern = r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$'
-
-    # Check if the input string matches the IPv4 pattern
-    match = re.match(ipv4_pattern, ip_str)
-
-    if match:
-        # Check each octet to ensure it is in the valid range (0 to 255)
-        octets = [int(octet) for octet in match.groups()]
-        if all(0 <= octet <= 255 for octet in octets):
-            return True
-    return False
