@@ -6,7 +6,7 @@ from .api_sd import router as sd_router
 app = FastAPI()
 
 
-@app.get("/health_check")
+@app.get("/")
 def health_check_view():
     return {"status": "ok"}
 
