@@ -71,7 +71,8 @@ class Res:
                     self.file_downloader.fetch(url=vae_model['url'], save_to=target_vae_filepath)
                 self.file_downloader.make_copy(src=target_vae_filepath, target=target_vae_copy_filepath)
         else:
-            self.file_downloader.remove(filepath=target_vae_copy_filepath)
+            if self.file_downloader.check(filepath=target_vae_copy_filepath):
+                self.file_downloader.remove(filepath=target_vae_copy_filepath)
 
         # ---controlnet---
         for controlnet in controlnet_list:
@@ -93,8 +94,8 @@ class Res:
             self.file_downloader.fetch(url=base_model['url'],
                                        save_to=target_model_filepath)
             logger.info(f"基础模型下载完成: {base_model['name']}")
-            # 刷新ckpt
-            self.webuiapi.refresh_checkpoints()
+        # 刷新ckpt(即使模型存在 也需要refresh一下)
+        self.webuiapi.refresh_checkpoints()
 
         # 参数预处理
         self._sd_params_preprocessing(item)
