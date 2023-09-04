@@ -17,16 +17,51 @@ S_RUNNING = "running"
 S_IDLE = "idle"
 
 
+class CkptHistory:
+    def __init__(self, size):
+        self._size = size
+        self._data = []
+
+    @property
+    def data(self):
+        """
+        查看当前加载历史记录
+        按照加载时间排序 越靠前 代表越靠近当前时间点
+        :return:
+        """
+        return self._data[::-1]
+
+    def add(self, name):
+        if name in self._data:
+            self._data.remove(name)
+        self._data.append(name)
+        if len(self._data) > self._size:
+            self._data = self._data[len(self._data) - self._size:]
+
+    def is_exist(self, name):
+        """
+        返回当前模型所在的索引
+        值越小，代表最近使用的时间越靠近当前
+        值为-1，代表最近没有使用过
+        :param name:
+        :return:
+        """
+        if name in self.data:
+            return self.data.index(name)
+        return -1
+
+
 class Res:
     origin: str
     status: str = S_IDLE
 
-    def __init__(self, origin, dl_server_origin, status=S_IDLE, status_time=time.time()):
+    def __init__(self, origin, dl_server_origin, status=S_IDLE, status_time=time.time(), ckpt_history_size=5):
         self.origin = origin
         self.status = status
         self.status_time = status_time
         self.file_downloader = FileDownloader(origin=dl_server_origin)
         self.webuiapi = WebUIApi(baseurl=f"{self.origin}/sdapi/v1")
+        self.cpkt_history = CkptHistory(size=ckpt_history_size)
 
     def __enter__(self):
         self._tic = time.time()
@@ -53,6 +88,8 @@ class Res:
     def _setup(self, item):
         # 前置准备工作
         base_model = item.setup_params.get("base_model", {})
+        base_model_name = base_model['name']
+
         vae_model = item.setup_params.get("vae_model", {})
         controlnet_list = item.setup_params.get("controlnet_list", [])
         lora_info_list = item.setup_params.get("lora_info_list", [])
@@ -62,7 +99,7 @@ class Res:
 
         # ---vae---
         target_vae_filepath = f"models/VAE/{vae_model.get('name', '')}"
-        target_vae_copy_filepath = f"models/VAE/{base_model['name'].split('.')[0]}.vae.pt"
+        target_vae_copy_filepath = f"models/VAE/{base_model_name.split('.')[0]}.vae.pt"
         if vae_model:
             vae_copy_is_exist = self.file_downloader.check(target_vae_copy_filepath)
             if not vae_copy_is_exist:
@@ -86,21 +123,21 @@ class Res:
                 logger.info(f"controlnet模型下载完成 {controlnet}")
 
         # ---基础模型---
-        target_model_filepath = f"models/Stable-diffusion/{base_model['name']}"
+        target_model_filepath = f"models/Stable-diffusion/{base_model_name}"
         model_is_exist = self.file_downloader.check(target_model_filepath)
         logger.info(f"基础模型是否已存在 => {target_model_filepath} : {model_is_exist}")
         if not model_is_exist:
-            logger.info(f"开始下载基础模型: {base_model['name']}")
+            logger.info(f"开始下载基础模型: {base_model_name}")
             self.file_downloader.fetch(url=base_model['url'],
                                        save_to=target_model_filepath)
-            logger.info(f"基础模型下载完成: {base_model['name']}")
+            logger.info(f"基础模型下载完成: {base_model_name}")
         # 刷新ckpt(即使模型存在 也需要refresh一下)
         self.webuiapi.refresh_checkpoints()
 
         # 参数预处理
         self._sd_params_preprocessing(item)
         # 切换模型
-        self._switch_model(model=item.setup_params.get("base_model")['name'])
+        self._switch_model(model=base_model_name)
 
     def _prepare_for_lora(self, lora_info_list=[]):
         """
@@ -156,6 +193,7 @@ class Res:
         logger.info(f"切换模型: {model}")
         if model is not None:
             self.webuiapi.util_set_model(model)
+            self.cpkt_history.add(model)
 
     def process(self, item):
         # 初始化
@@ -181,13 +219,17 @@ class Pool:
             self.register(origin)
 
     def list_res(self):
-        return [{"host": item.origin, "status": item.status,
-                 "state_duration": item.get_state_duration()} for item in
-                self.res_list]
+        return [
+            {"host": item.origin, "status": item.status,
+             "state_duration": item.get_state_duration(),
+             "ckpt_history": item.cpkt_history.data
+             } for item in
+            self.res_list]
 
-    def register(self, origin: str):
+    def register(self, origin: str, ckpt_history_size=5):
         if origin not in [res.origin for res in self.res_list]:
-            self.res_list.append(Res(origin=origin, dl_server_origin=self.dl_server_origin, status_time=time.time()))
+            self.res_list.append(Res(origin=origin, dl_server_origin=self.dl_server_origin, status_time=time.time(),
+                                     ckpt_history_size=ckpt_history_size))
         else:
             raise Exception("host already in register res list")
 
@@ -217,10 +259,15 @@ class Pool:
             if block:
                 time.sleep(1)
 
-    def pick(self) -> Res:
+    def pick(self, ckpt_model_name) -> Res:
         res_list = self.idle_res_list(block=True)
         if res_list:
-            res = random.choice(res_list)
+            # 智能路由逻辑，优先从有过记录的 闲置节点中触发生成
+            for res in res_list:
+                if res.cpkt_history.is_exist(ckpt_model_name) >= 0:
+                    break
+            else:
+                res = random.choice(res_list)
             logger.info(f"pick res from {len(res_list)} idle res => {res.origin}")
             return res
         else:

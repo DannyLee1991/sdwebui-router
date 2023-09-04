@@ -17,7 +17,8 @@ class GenImg(RWModel):
 def gen_img(item: GenImg):
     from app import pool
     try:
-        res = pool.pick()
+        ckpt_model_name = item.setup_params.get("base_model", {}).get("name", "")
+        res = pool.pick(ckpt_model_name)
         with res:
             data = res.process(item)
             return ResponseModel(data=data)
