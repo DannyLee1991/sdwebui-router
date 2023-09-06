@@ -21,14 +21,15 @@ class Res:
     origin: str
     status: str = S_IDLE
 
-    def __init__(self, origin, dl_server_origin, status=S_IDLE, status_time=time.time(), ckpt_history_size=5):
+    def __init__(self, origin, dl_server_origin, status=S_IDLE, status_time=time.time(), ckpt_history_size=5,
+                 controlnet_history_size=5):
         self.origin = origin
         self.status = status
         self.status_time = status_time
         self.file_downloader = FileDownloader(origin=dl_server_origin)
         self.webuiapi = WebUIApi(baseurl=f"{self.origin}/sdapi/v1")
         self.cpkt_history = History(size=ckpt_history_size)
-        self.controlnet_history = History(size=ckpt_history_size)
+        self.controlnet_history = History(size=controlnet_history_size)
 
     def __enter__(self):
         self._tic = time.time()
@@ -194,10 +195,13 @@ class Pool:
              } for item in
             self.res_list]
 
-    def register(self, origin: str, ckpt_history_size=5):
+    def register(self, origin: str, ckpt_history_size=5, controlnet_history_size=5):
         if origin not in [res.origin for res in self.res_list]:
-            self.res_list.append(Res(origin=origin, dl_server_origin=self.dl_server_origin, status_time=time.time(),
-                                     ckpt_history_size=ckpt_history_size))
+            self.res_list.append(Res(origin=origin,
+                                     dl_server_origin=self.dl_server_origin,
+                                     status_time=time.time(),
+                                     ckpt_history_size=ckpt_history_size,
+                                     controlnet_history_size=controlnet_history_size))
         else:
             raise Exception("host already in register res list")
 
