@@ -170,7 +170,6 @@ class Res:
         # 初始化
         self._setup(item)
         # 开始触发生成
-        logger.info(f"sd_params: \n {json.dumps(item.sd_params, ensure_ascii=False, indent=4)}")
         result_data = getattr(self.webuiapi, item.mode)(**item.sd_params)
         data = {"info": result_data.info, "parameters": result_data.parameters, "images": []}
         for image in result_data.images:
