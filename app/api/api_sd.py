@@ -15,6 +15,7 @@ class GenImg(RWModel):
 
 @router.post("/gen")
 def gen_img(item: GenImg):
+    logger.info(f"start gen_img: {item}")
     from app import pool
     try:
         ckpt_model_name = item.setup_params.get("base_model", {}).get("name", "")

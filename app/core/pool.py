@@ -1,3 +1,4 @@
+import json
 import time
 import random
 from typing import List
@@ -156,6 +157,8 @@ class Res:
             ]
         # prompt参数设置
         item.sd_params["prompt"] = item.prompt
+        # 修复sdwebui会错误携带controlnet模型的问题
+        item.sd_params["alwayson_scripts"] = {}
 
     def _switch_model(self, model):
         logger.info(f"切换模型: {model}")
@@ -167,6 +170,7 @@ class Res:
         # 初始化
         self._setup(item)
         # 开始触发生成
+        logger.info(f"sd_params: \n {json.dumps(item.sd_params, ensure_ascii=False, indent=4)}")
         result_data = getattr(self.webuiapi, item.mode)(**item.sd_params)
         data = {"info": result_data.info, "parameters": result_data.parameters, "images": []}
         for image in result_data.images:
