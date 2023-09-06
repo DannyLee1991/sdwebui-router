@@ -90,6 +90,8 @@ class Res:
                     url=controlnet['url'],
                     save_to=target_control_filepath)
                 logger.info(f"controlnet模型下载完成 {controlnet}")
+            # 将调用过的controlnet添加到路由记录中
+            self.controlnet_history.add(controlnet['name'])
 
         # ---基础模型---
         target_model_filepath = f"models/Stable-diffusion/{base_model_name}"
