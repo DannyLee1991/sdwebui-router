@@ -1,6 +1,5 @@
 import time
 import random
-import re
 from typing import List
 from loguru import logger
 from app.module.file_downloader import FileDownloader
@@ -12,43 +11,10 @@ import pickle
 import zipfile
 from PIL import Image
 from io import BytesIO
+from app.core.model_load_history import History
 
 S_RUNNING = "running"
 S_IDLE = "idle"
-
-
-class CkptHistory:
-    def __init__(self, size):
-        self._size = size
-        self._data = []
-
-    @property
-    def data(self):
-        """
-        查看当前加载历史记录
-        按照加载时间排序 越靠前 代表越靠近当前时间点
-        :return:
-        """
-        return self._data[::-1]
-
-    def add(self, name):
-        if name in self._data:
-            self._data.remove(name)
-        self._data.append(name)
-        if len(self._data) > self._size:
-            self._data = self._data[len(self._data) - self._size:]
-
-    def is_exist(self, name):
-        """
-        返回当前模型所在的索引
-        值越小，代表最近使用的时间越靠近当前
-        值为-1，代表最近没有使用过
-        :param name:
-        :return:
-        """
-        if name in self.data:
-            return self.data.index(name)
-        return -1
 
 
 class Res:
@@ -61,7 +27,8 @@ class Res:
         self.status_time = status_time
         self.file_downloader = FileDownloader(origin=dl_server_origin)
         self.webuiapi = WebUIApi(baseurl=f"{self.origin}/sdapi/v1")
-        self.cpkt_history = CkptHistory(size=ckpt_history_size)
+        self.cpkt_history = History(size=ckpt_history_size)
+        self.controlnet_history = History(size=ckpt_history_size)
 
     def __enter__(self):
         self._tic = time.time()
@@ -222,7 +189,8 @@ class Pool:
         return [
             {"host": item.origin, "status": item.status,
              "state_duration": item.get_state_duration(),
-             "ckpt_history": item.cpkt_history.data
+             "ckpt_history": item.cpkt_history.data,
+             "controlnet_history": item.controlnet_history.data
              } for item in
             self.res_list]
 
@@ -247,7 +215,7 @@ class Pool:
                 if res.get_state_duration() > self.max_running_timeout:
                     res._release()
 
-    def idle_res_list(self, block=False):
+    def idle_res_list(self, block=False, shuffle=True):
         while block:
             self.refresh()
             idle_res = []
@@ -255,19 +223,29 @@ class Pool:
                 if res.status == S_IDLE:
                     idle_res.append(res)
             if idle_res:
+                if shuffle:
+                    random.shuffle(idle_res)
                 return idle_res
             if block:
                 time.sleep(1)
 
-    def pick(self, ckpt_model_name) -> Res:
-        res_list = self.idle_res_list(block=True)
+    def pick(self, ckpt_model_name, controlnet_list=[]) -> Res:
+        res_list = self.idle_res_list(block=True, shuffle=True)
         if res_list:
             # 智能路由逻辑，优先从有过记录的 闲置节点中触发生成
-            for res in res_list:
+            score_list = []
+            for i, res in enumerate(res_list):
+                score = 0
                 if res.cpkt_history.is_exist(ckpt_model_name) >= 0:
-                    break
-            else:
-                res = random.choice(res_list)
+                    # checkpoint模型权重为1分
+                    score += 2
+                for cn in controlnet_list:
+                    if res.controlnet_history.is_exist(cn) >= 0:
+                        # controlnet模型权重为1分
+                        score += 1
+                score_list.append(score)
+            idx = score_list.index(max(score_list))
+            res = res_list[idx]
             logger.info(f"pick res from {len(res_list)} idle res => {res.origin}")
             return res
         else:

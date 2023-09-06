@@ -18,7 +18,8 @@ def gen_img(item: GenImg):
     from app import pool
     try:
         ckpt_model_name = item.setup_params.get("base_model", {}).get("name", "")
-        res = pool.pick(ckpt_model_name)
+        controlnet_list = item.setup_params.get("controlnet_list", [])
+        res = pool.pick(ckpt_model_name, controlnet_list)
         with res:
             data = res.process(item)
             return ResponseModel(data=data)

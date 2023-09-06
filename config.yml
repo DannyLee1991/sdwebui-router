@@ -2,6 +2,6 @@ pool:
   res_origin_list:
     - https://0.webui.museai.cc
     - https://1.webui.museai.cc
-    - https://2.webui.museai.cc
+#    - https://2.webui.museai.cc
   dl_server_origin: https://dl.webui.museai.cc
   max_running_timeout: 600
