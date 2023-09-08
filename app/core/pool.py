@@ -158,7 +158,7 @@ class Res:
 
             for unit in item.sd_params["controlnet_units"]:
                 # 将调用过的controlnet添加到路由记录中
-                self.controlnet_history.add(unit['model'])
+                self.controlnet_history.add(unit.model)
         # prompt参数设置
         item.sd_params["prompt"] = item.prompt
         # 修复sdwebui会错误携带controlnet模型的问题
