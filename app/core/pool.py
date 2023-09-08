@@ -90,8 +90,6 @@ class Res:
                     url=controlnet['url'],
                     save_to=target_control_filepath)
                 logger.info(f"controlnet模型下载完成 {controlnet}")
-            # 将调用过的controlnet添加到路由记录中
-            self.controlnet_history.add(controlnet['name'])
 
         # ---基础模型---
         target_model_filepath = f"models/Stable-diffusion/{base_model_name}"
@@ -157,6 +155,10 @@ class Res:
                 )
                 for unit in item.sd_params["controlnet_units"]
             ]
+
+            for unit in item.sd_params["controlnet_units"]:
+                # 将调用过的controlnet添加到路由记录中
+                self.controlnet_history.add(unit['model'])
         # prompt参数设置
         item.sd_params["prompt"] = item.prompt
         # 修复sdwebui会错误携带controlnet模型的问题
@@ -238,7 +240,7 @@ class Pool:
             if block:
                 time.sleep(1)
 
-    def pick(self, ckpt_model_name, controlnet_list=[]) -> Res:
+    def pick(self, ckpt_model_name, controlnet_model_list=[]) -> Res:
         res_list = self.idle_res_list(block=True, shuffle=True)
         if res_list:
             # 智能路由逻辑，优先从有过记录的 闲置节点中触发生成
@@ -248,7 +250,7 @@ class Pool:
                 if res.cpkt_history.is_exist(ckpt_model_name) >= 0:
                     # checkpoint模型权重为1分
                     score += 2
-                for cn in controlnet_list:
+                for cn in controlnet_model_list:
                     if res.controlnet_history.is_exist(cn) >= 0:
                         # controlnet模型权重为1分
                         score += 1
